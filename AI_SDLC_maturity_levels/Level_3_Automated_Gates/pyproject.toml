@@ -1,0 +1,42 @@
+[project]
+name = "level3-automated-gates-churn"
+version = "1.0.0"
+description = "Level 3 AI SDLC example — automated gates for customer churn prediction"
+authors = [{ name = "AI SDLC Maturity Model" }]
+requires-python = ">=3.10"
+dependencies = [
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "scikit-learn>=1.3.0",
+    "joblib>=1.3.0",
+    "flask>=2.3.0",
+    "mlflow>=2.10.0",
+    "scipy>=1.11.0",
+    "pyyaml>=6.0",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.4.0",
+    "mypy>=1.8.0",
+    "jupyter>=1.0.0",
+]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true

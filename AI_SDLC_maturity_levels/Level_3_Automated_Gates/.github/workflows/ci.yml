@@ -1,0 +1,65 @@
+name: Level 3 CI - Automated Gates
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Level_3_Automated_Gates/**"
+      - ".github/workflows/level3-ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "Level_3_Automated_Gates/**"
+
+defaults:
+  run:
+    working-directory: AI_SDLC_maturity_levels/Level_3_Automated_Gates
+
+jobs:
+  quality-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run lint
+        run: uv run ruff check src/ tests/ scripts/ app/
+
+      - name: Run type checks
+        run: uv run mypy src/ --ignore-missing-imports
+
+      - name: Generate training data
+        run: uv run python -c "from src.data.generate import generate_data; generate_data('data/customer_data.csv')"
+
+      - name: Run training pipeline with gates
+        run: uv run python scripts/train.py
+
+      - name: Run evaluation script
+        run: uv run python scripts/evaluate.py
+
+      - name: Run tests with coverage
+        run: uv run pytest tests/ -v --tb=short --cov=src --cov-report=term-missing
+
+      - name: Run data validation gate on fresh data
+        run: uv run python scripts/validate_data.py --data data/customer_data.csv
+
+      - name: Run model gates
+        run: uv run python scripts/run_gates.py
+
+      - name: Test serve endpoint
+        run: |
+          uv run python scripts/serve.py &
+          SERVE_PID=$!
+          sleep 3
+          curl -s http://127.0.0.1:8000/health | grep -q '"status":"ok"'
+          curl -s -X POST http://127.0.0.1:8000/predict \
+            -H "Content-Type: application/json" \
+            -d '{"age":45,"tenure_months":24,"monthly_charges":85,"total_charges":2040,"avg_monthly_usage_hours":38,"late_payments_last_12m":1,"contract_type":"Month-to-month","payment_method":"Electronic check","internet_service":"Fiber optic","tech_support":"No"}'
+          kill $SERVE_PID 2>/dev/null || true

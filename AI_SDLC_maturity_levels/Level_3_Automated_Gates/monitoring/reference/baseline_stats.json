@@ -1,0 +1,62 @@
+{
+  "numeric": {
+    "age": {
+      "mean": 41.46,
+      "std": 11.64,
+      "p50": 40.5,
+      "p95": 59.55
+    },
+    "tenure_months": {
+      "mean": 23.78,
+      "std": 17.24,
+      "p50": 19.5,
+      "p95": 53.1
+    },
+    "monthly_charges": {
+      "mean": 76.51,
+      "std": 23.57,
+      "p50": 76.75,
+      "p95": 111.1
+    },
+    "total_charges": {
+      "mean": 2153.51,
+      "std": 1860.62,
+      "p50": 1469.0,
+      "p95": 5296.8
+    },
+    "avg_monthly_usage_hours": {
+      "mean": 40.96,
+      "std": 16.02,
+      "p50": 39.5,
+      "p95": 67.1
+    },
+    "late_payments_last_12m": {
+      "mean": 2.0,
+      "std": 2.13,
+      "p50": 1.0,
+      "p95": 6.0
+    }
+  },
+  "categorical": {
+    "contract_type": {
+      "Month-to-month": 0.5,
+      "One year": 0.26,
+      "Two year": 0.24
+    },
+    "payment_method": {
+      "Electronic check": 0.36,
+      "Credit card": 0.24,
+      "Mailed check": 0.2,
+      "Bank transfer": 0.2
+    },
+    "internet_service": {
+      "Fiber optic": 0.56,
+      "DSL": 0.44
+    },
+    "tech_support": {
+      "No": 0.52,
+      "Yes": 0.48
+    }
+  },
+  "n_samples": 50
+}
