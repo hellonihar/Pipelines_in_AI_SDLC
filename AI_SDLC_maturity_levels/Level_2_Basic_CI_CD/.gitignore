@@ -6,6 +6,7 @@ __pycache__/
 .venv/
 .uv/
 mlflow_data/
+mlruns/
 models/*.pkl
 models/*.json
 .ipynb_checkpoints/
