@@ -1,222 +1,106 @@
-# Business Case: Level 1 → Level 2 AI SDLC Maturity
+# Level 1: Manual — Example Application
 
-## Moving from Manual Delivery to Basic CI/CD
+## Customer Churn Prediction
 
----
-
-## Executive Summary
-
-This organization currently operates at **Level 1** of the AI SDLC maturity model — models are developed in isolation, deployed by hand, and monitored (if at all) by user complaints. This document makes the case for investing in **Level 2** infrastructure: version control, basic CI/CD pipelines, and a model registry.
-
-**The ask:** ~6-8 weeks of engineering effort to set up foundational tooling and processes. **The return:** faster model delivery (weeks → days), fewer production incidents, audit-readiness, and reduced bus-factor risk. The investment is primarily engineering time, not licensing costs — nearly all recommended tooling is open source.
+This is a deliberately **Level 1** example application that demonstrates how AI delivery works without pipelines, automation, or reproducibility controls. It illustrates the pain points quantified in the business case.
 
 ---
 
-## 1. Current State Assessment (Level 1)
+## What's Here
 
-### How AI Delivery Works Today
-
-```mermaid
-graph LR
-    DS[Data Scientist] -->|Jupyter Notebook| Train[Local Training]
-    Train -->|Manual export .pkl/.h5| Script[Deployment Script]
-    Script -->|SSH/RDP| Prod[Production Server]
-    Prod -->|No monitoring| Unknown[?]
 ```
-
-| Aspect | Current State |
-|--------|---------------|
-| **Code management** | Notebooks shared via email / shared drive |
-| **Training** | Runs on local machines or ad-hoc VM |
-| **Model storage** | `.pkl` / `.h5` files in random folders |
-| **Deployment** | Manual copy to server, restart service |
-| **Testing** | None or ad-hoc |
-| **Monitoring** | None — issues found by users |
-| **Rollback** | Keep old `.pkl` file if you remember where it is |
-
-### Effort Distribution
-
-Data Scientists currently spend an estimated **60-70% of their time** on:
-- Manually reproducing experiments to track what changed
-- Debugging deployment issues (wrong file, wrong path, missing dependency)
-- Firefighting production incidents with no logs or metrics
-- Rebuilding lost work when notebooks or files are misplaced
-
-Only **30-40%** is spent on actual modeling, experimentation, and value creation.
-
-### Model Inventory
-
-| Model | Purpose | Deployed How | Last Updated |
-|-------|---------|-------------|-------------|
-| Model A | Classification | Manual `.pkl` copy | Unknown |
-| Model B | Recommendation | Notebook export → SCP | 3 months ago |
-| Model C | Fraud detection | Docker image (hand-built) | 6 weeks ago |
-
-*Every model has a different delivery process and no standardized artifact.*
-
----
-
-## 2. Pain Points & Risks
-
-### For the C-Suite / Executives
-
-| Risk | Business Impact |
-|------|----------------|
-| **No reproducibility** | Regulatory inquiries cannot be answered. "What data was Model A trained on?" — we cannot produce the answer. |
-| **No audit trail** | Compliance audits (SOC 2, ISO 27001, internal) require evidence of controlled change management. We have none. |
-| **Silent model degradation** | Model B's accuracy dropped 15% two months ago. We discovered it last week via a customer complaint. Revenue impact: ~$X/month. |
-| **Bus-factor = 1** | The person who built Model C is the only one who understands it. If they leave, the model is unmaintainable. |
-| **No velocity** | Each model update takes 2-3 weeks of re-learning and manual steps. Competitors deploying weekly. |
-
-### For Engineering Leadership
-
-| Pain Point | Detail |
-|------------|--------|
-| **Deployments are high-risk events** | Every deployment requires 2-3 hours of supervised cutover. No rollback plan. |
-| **Onboarding takes months** | New Data Scientists cannot ship independently for 3-6 months due to tribal knowledge. |
-| **No quality bar** | Models ship without automated tests or evaluation. Regressions discovered in production. |
-| **Debugging is impossible** | Production issues have no logs, no metrics, no traceability. Root cause analysis is guessing. |
-| **Resource waste** | 60-70% of Data Scientist time is spent on manual infrastructure, not modeling. |
-
----
-
-## 3. Cost-Benefit Analysis
-
-### Current Cost of Level 1
-
-| Category | Annual Estimate |
-|----------|----------------|
-| Data Scientist time wasted on manual ops (3 DS × $180k × 65%) | ~$351,000 |
-| Production incidents (avg 6/yr × 20hr remediation × $150/hr) | ~$18,000 |
-| Delayed model releases (2-week delay × 4 releases × opportunity cost) | ~$50,000 |
-| Onboarding cost (3 months × $180k per new hire × 2 hires) | ~$90,000 |
-| **Total annual waste** | **~$509,000** |
-
-### Investment Required (Level 2)
-
-| Item | Cost | Notes |
-|------|------|-------|
-| Version control (GitHub/GitLab) | Already owned | Standard enterprise license |
-| CI/CD minutes | ~$500/yr | GitHub Actions / GitLab CI |
-| Model registry (MLflow) | Free | Open source, self-hosted |
-| Container registry | ~$0-1,000/yr | Docker Hub / cloud registry |
-| Engineering setup effort | 6-8 weeks of 1 ML Engineer | ~$40,000 one-time |
-| Team training | 2-day workshop | ~$5,000 |
-| **Total first year** | **~$46,500** | |
-
-### Projected Returns
-
-| Benefit | Year 1 Savings |
-|---------|----------------|
-| Data Scientist time recovered (65% → 35% overhead) | ~$162,000 |
-| Incident reduction (6 → 2 per year) | ~$12,000 |
-| Faster model delivery (weeks → days) | ~$100,000 |
-| Faster onboarding (3 months → 3 weeks) | ~$60,000 |
-| **Total Year 1 return** | **~$334,000** |
-| **ROI (Year 1)** | **~7x** |
-
----
-
-## 4. Proposed Roadmap
-
-### Phase 1: Foundation (Weeks 1-2)
-
-- Migrate all model code from notebooks to Python scripts in Git
-- Establish branch strategy (main / develop / feature)
-- Set up `.gitignore`, `requirements.txt`, `pyproject.toml`
-- Implement code review process (PRs required for all model changes)
-
-**Deliverable:** Every model has a Git repository with versioned code.
-
-### Phase 2: CI Pipeline (Weeks 3-4)
-
-- Add CI pipeline: lint (ruff/black), type-check (mypy), unit tests (pytest)
-- Add data validation step: schema checks, missing value detection
-- Set up automated model training trigger on merge to develop branch
-
-**Deliverable:** Code changes automatically trigger tests and validation before merge.
-
-### Phase 3: Model Registry (Weeks 5-6)
-
-- Deploy MLflow (or alternative) for model artifact storage
-- Instrument training scripts to log: hyperparameters, metrics, artifact location
-- Register first model version through the registry
-
-**Deliverable:** Every trained model is versioned, tagged, and traceable to code + data.
-
-### Phase 4: CD Pipeline (Weeks 7-8)
-
-- Containerize models (Dockerfile per model)
-- Add deployment pipeline: build image → push to registry → deploy to staging
-- Add manual approval gate before production promotion
-- Create rollback script: deploy previous registry version
-
-**Deliverable:** Staging deployments are automated; production requires one-click approval.
-
-### Target Architecture (Level 2)
-
-```mermaid
-graph LR
-    DS[Data Scientist] -->|Git push| Repo[Code Repo]
-    Repo -->|PR merged| CI[CI Pipeline]
-    CI -->|tests + validation| Train[Training Job]
-    Train -->|model + metrics| ModelReg[Model Registry]
-    ModelReg -->|versioned artifact| CD[CD Pipeline]
-    CD -->|Docker image| Staging[Staging]
-    Staging -->|Manual approval| Prod[Production]
+Level_1_Manual/
+├── README.md               ← This file
+├── business_case.md         ← Business case for Level 1 → Level 2
+├── requirements.txt         ← Python dependencies
+├── data/
+│   └── customer_data.csv    ← 50 synthetic customer records
+├── notebooks/
+│   └── churn_model_dev.ipynb ← Jupyter notebook with full workflow
+├── models/
+│   └── (generated .pkl files land here)
+├── scripts/
+│   └── deploy.ps1           ← Manual deployment script (SCP + SSH)
+└── app/
+    └── serve_model.py       ← Minimal Flask model server
 ```
 
 ---
 
-## 5. Success Metrics
+## How to Run
 
-| Metric | Current | Target (3 months) | Target (6 months) |
-|--------|---------|-------------------|-------------------|
-| Deployments via CI/CD | 0% | 100% | 100% |
-| Time from commit to staging | N/A | < 1 hour | < 30 minutes |
-| Model reproducibility rate | ~10% | 100% | 100% |
-| Production incidents / quarter | 3-4 | ≤ 1 | ≤ 1 |
-| Incident MTTR | 6-20 hours | < 2 hours | < 1 hour |
-| Data Scientist time on modeling | ~35% | ~60% | ~65% |
-| Onboarding to first deploy | 3-6 months | 3 weeks | 2 weeks |
+### 1. Install dependencies
 
----
+```bash
+pip install -r requirements.txt
+```
 
-## 6. Risk Mitigation
+### 2. Train the model
 
-| Risk | Likelihood | Mitigation |
-|------|-----------|------------|
-| **Team resistance** to new process | Medium | Involve DS team in tool selection; start with one model as pilot; celebrate quick wins |
-| **Tool sprawl** — too many tools, no integration | Low | Limit scope: Git + CI (GitHub Actions) + MLflow + Docker. No new tools until these work. |
-| **Pipeline fragility** — broken CI blocks everyone | Medium | Start with optional gates on non-critical models; harden over time |
-| **Loss of velocity during transition** | High | Keep old manual process available for critical releases during first 4 weeks; sunset gradually |
-| **Underestimating effort** | Medium | Add 2-week buffer to roadmap; treat Phase 1-2 as minimal; defer Phase 3-4 if needed |
+Open `notebooks/churn_model_dev.ipynb` in Jupyter and run all cells. This will:
 
----
+- Load `data/customer_data.csv`
+- Preprocess features with hardcoded mappings
+- Train a random forest classifier
+- Print evaluation metrics
+- Export a `.pkl` file to `models/`
 
-## 7. Appendix — Tooling Recommendations
+### 3. Deploy manually (simulated)
 
-| Function | Recommended Tool | Alternative |
-|----------|-----------------|-------------|
-| Version control | GitHub / GitLab | Azure DevOps |
-| CI/CD | GitHub Actions | GitLab CI, Jenkins |
-| Model registry | MLflow | DVC, Weights & Biases |
-| Containerization | Docker | — |
-| Container registry | Docker Hub / GHCR | ACR, ECR |
-| Artifact storage | S3 / Azure Blob | MinIO (self-hosted) |
-| Secret management | GitHub Secrets | HashiCorp Vault |
+```powershell
+.\scripts\deploy.ps1 -ModelPath ".\models\churn_model_2026-06-20.pkl" -Server "prod-serve-01"
+```
 
----
+*Requires a target server with SSH access.*
 
-## 8. Next Steps
+### 4. Serve locally
 
-1. **Approve** the 8-week engineering allocation for this initiative
-2. **Identify** one pilot model to migrate first
-3. **Assemble** working group: 1 ML Engineer + 1 Data Scientist + 1 DevOps
-4. **Schedule** 2-day kickoff workshop (training + roadmap refinement)
-5. **Begin** Phase 1 implementation
+```bash
+python app/serve_model.py
+```
+
+Test with:
+
+```bash
+curl -X POST http://localhost:8080/predict \
+  -H "Content-Type: application/json" \
+  -d '{"age":35,"tenure_months":12,"monthly_charges":75.5,"total_charges":906,"contract_type":0,"payment_method":0,"internet_service":1,"tech_support":0,"avg_monthly_usage_hours":45,"late_payments_last_12m":3}'
+```
 
 ---
 
-*Prepared for engineering leadership and executive review.*
-*AI SDLC Maturity Level 1 → Level 2 business case.*
+## What This Demonstrates
+
+### Level 1 Characteristics
+
+| File | Characteristic | Why It's Fragile |
+|------|---------------|------------------|
+| `churn_model_dev.ipynb` | Everything in one notebook | Can't reuse preprocessing; can't schedule retraining |
+| `churn_model_dev.ipynb` | Hardcoded data path | Breaks if `customer_data.csv` moves or is renamed |
+| `churn_model_dev.ipynb` | Manual encoding | Unseen categories (e.g. a new contract type) crash training |
+| `churn_model_dev.ipynb` | Random seed not locked | Different split every run → metrics not reproducible |
+| `churn_model_dev.ipynb` | Hyperparameters guessed | No record of why n_estimators=100 or max_depth=10 |
+| `churn_model_dev.ipynb` | No evaluation saved | Run the notebook, see metrics, close it — metrics are gone |
+| `deploy.ps1` | Manual SCP + SSH | No rollback, no canary, no health check before cutover |
+| `deploy.ps1` | Hardcoded server name | If the server changes, the script must be edited |
+| Models exported as `.pkl` | No versioning | Two models with the same name can coexist — which is live? |
+| `serve_model.py` | Debug mode in production | Crashes silently, no monitoring, no graceful shutdown |
+
+### What's Missing (Compared to Level 2+)
+
+- No CI/CD pipeline
+- No automated tests
+- No model registry
+- No experiment tracking
+- No data validation gates
+- No monitoring or drift detection
+- No reproducible training
+- No audit trail
+
+---
+
+## Intended Use
+
+This example is a **teaching tool** — it exists to be compared with the later maturity levels so you can see the concrete difference that pipelines, automation, and reproducibility make.
+
+Refer to the business case in this folder for the cost-benefit analysis of moving from Level 1 to Level 2.

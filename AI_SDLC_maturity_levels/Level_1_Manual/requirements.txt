@@ -1,0 +1,15 @@
+# requirements.txt — Level 1 Example App
+#
+# NOTE: This file was created to help you run the example.
+# In a true Level 1 setup, dependencies would not be tracked this way.
+# Team members would install packages ad-hoc with pip install.
+# When the notebook fails with ModuleNotFoundError, each person
+# installs the missing package individually, leading to different
+# versions across the team.
+
+pandas>=2.0.0
+numpy>=1.24.0
+scikit-learn>=1.3.0
+joblib>=1.3.0
+matplotlib>=3.7.0
+flask>=2.3.0
