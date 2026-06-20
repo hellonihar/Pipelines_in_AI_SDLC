@@ -2,7 +2,7 @@
 
 ## 1. Business Problem
 
-Customer churn costs the company an estimated $2.4M annually in lost recurring revenue. The organization currently has no systematic way to identify at-risk customers before they cancel. This project aims to build a churn prediction system that enables proactive retention interventions.
+Customer churn — defined as a subscriber cancelling their service or allowing their account to go inactive for 60+ consecutive days — costs the company an estimated $2.4M annually in lost recurring revenue. The organization currently has no systematic way to identify at-risk customers before they cancel. This project aims to build a churn prediction system that enables proactive retention interventions.
 
 **Target:** Reduce voluntary churn by 15% within 6 months of deployment.
 
