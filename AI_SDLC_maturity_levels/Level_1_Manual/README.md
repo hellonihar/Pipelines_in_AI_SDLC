@@ -11,8 +11,10 @@ This is a deliberately **Level 1** example application that demonstrates how AI 
 ```
 Level_1_Manual/
 ├── README.md               ← This file
-├── business_case.md         ← Business case for Level 1 → Level 2
-├── requirements.txt         ← Python dependencies
+├── BUSINESS_CASE.md         ← Business case for Level 1 → Level 2
+├── pyproject.toml           ← Project config (UV-native)
+├── .python-version          ← Python version pin for UV
+├── requirements.txt         ← Fallback requirements (pip compat)
 ├── data/
 │   └── customer_data.csv    ← 50 synthetic customer records
 ├── notebooks/
@@ -31,6 +33,12 @@ Level_1_Manual/
 
 ### 1. Install dependencies
 
+**UV (recommended):**
+```bash
+uv sync
+```
+
+**pip fallback:**
 ```bash
 pip install -r requirements.txt
 ```
@@ -56,7 +64,8 @@ Open `notebooks/churn_model_dev.ipynb` in Jupyter and run all cells. This will:
 ### 4. Serve locally
 
 ```bash
-python app/serve_model.py
+uv run python app/serve_model.py
+# or: python app/serve_model.py (if uv sync already activated the venv)
 ```
 
 Test with:
@@ -104,3 +113,21 @@ curl -X POST http://localhost:8080/predict \
 This example is a **teaching tool** — it exists to be compared with the later maturity levels so you can see the concrete difference that pipelines, automation, and reproducibility make.
 
 Refer to the business case in this folder for the cost-benefit analysis of moving from Level 1 to Level 2.
+
+---
+
+## UV Notes
+
+This project is configured for [UV](https://docs.astral.sh/uv/), a fast Python package manager.
+
+| Command | What it does |
+|---------|-------------|
+| `uv sync` | Create venv + install all dependencies from `pyproject.toml` |
+| `uv run <script>` | Run a script in the project's venv |
+| `uv add <package>` | Add a dependency to `pyproject.toml` |
+| `uv lock` | Generate/update `uv.lock` for reproducible installs |
+| `uv python pin 3.12` | Set local Python version (see `.python-version`) |
+
+The `.python-version` file pins Python to 3.12. UV will auto-download the right interpreter if not installed.
+
+*Irony: UV itself brings reproducibility, which is exactly what Level 1 lacks. The pyproject.toml and lockfile model better solutions in later maturity levels.*

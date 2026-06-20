@@ -1,0 +1,23 @@
+[project]
+name = "level1-manual-churn"
+version = "1.0.0"
+description = "Level 1 AI SDLC example — manual customer churn prediction"
+authors = [{ name = "AI SDLC Maturity Model" }]
+requires-python = ">=3.10"
+dependencies = [
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "scikit-learn>=1.3.0",
+    "joblib>=1.3.0",
+    "matplotlib>=3.7.0",
+    "flask>=2.3.0",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.uv]
+dev-dependencies = [
+    "jupyter>=1.0.0",
+]

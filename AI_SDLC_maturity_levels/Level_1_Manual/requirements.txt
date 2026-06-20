@@ -1,11 +1,6 @@
-# requirements.txt — Level 1 Example App
-#
-# NOTE: This file was created to help you run the example.
-# In a true Level 1 setup, dependencies would not be tracked this way.
-# Team members would install packages ad-hoc with pip install.
-# When the notebook fails with ModuleNotFoundError, each person
-# installs the missing package individually, leading to different
-# versions across the team.
+# requirements.txt — retained for pip compatibility
+# UV users: run `uv sync` or `uv pip install -r requirements.txt`
+# Preferred: use pyproject.toml (`uv sync` reads dependencies from there)
 
 pandas>=2.0.0
 numpy>=1.24.0
