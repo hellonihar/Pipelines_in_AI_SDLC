@@ -11,5 +11,6 @@ models/*.pkl
 .ipynb_checkpoints/
 
 # Environment
+.env
 .venv/
 .uv/

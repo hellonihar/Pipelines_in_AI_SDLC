@@ -9,13 +9,17 @@ import sys
 import joblib
 import pandas as pd
 from flask import Flask, request, jsonify
+from dotenv import load_dotenv
 
+load_dotenv()  # Load environment variables from .env file
 app = Flask(__name__)
 
 # === Hardcoded model path ===
 # Change this line every time you deploy a new model.
 # No environment variables, no config files.
-MODEL_PATH = "../models/churn_model_2026-06-20.pkl"
+# MODEL_PATH = "../models/churn_model_2026-06-20.pkl"
+
+MODEL_PATH = os.getenv("MODEL_PATH")
 
 if not os.path.exists(MODEL_PATH):
     print(f"FATAL: Model not found at {MODEL_PATH}", file=sys.stderr)
@@ -23,9 +27,16 @@ if not os.path.exists(MODEL_PATH):
 
 model = joblib.load(MODEL_PATH)
 feature_names = [
-    "age", "tenure_months", "monthly_charges", "total_charges",
-    "contract_type", "payment_method", "internet_service",
-    "tech_support", "avg_monthly_usage_hours", "late_payments_last_12m"
+    "age",
+    "tenure_months",
+    "monthly_charges",
+    "total_charges",
+    "contract_type",
+    "payment_method",
+    "internet_service",
+    "tech_support",
+    "avg_monthly_usage_hours",
+    "late_payments_last_12m",
 ]
 print(f"Model loaded from {MODEL_PATH}")
 print(f"Expected features: {feature_names}")
@@ -57,12 +68,14 @@ def predict():
 
     results = []
     for i, (pred, prob) in enumerate(zip(preds, probs)):
-        results.append({
-            "prediction": int(pred),
-            "label": "CHURN" if pred == 1 else "STAY",
-            "confidence_stay": round(prob[0], 4),
-            "confidence_churn": round(prob[1], 4)
-        })
+        results.append(
+            {
+                "prediction": int(pred),
+                "label": "CHURN" if pred == 1 else "STAY",
+                "confidence_stay": round(prob[0], 4),
+                "confidence_churn": round(prob[1], 4),
+            }
+        )
 
     return jsonify({"predictions": results})
 
