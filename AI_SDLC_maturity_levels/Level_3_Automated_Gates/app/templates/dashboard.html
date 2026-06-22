@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Automated Gates{% endblock %}
+{% set active_page = "dashboard" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="mb-0"><i class="bi bi-speedometer2 me-2"></i>Dashboard</h3>
+    <div>
+        <button class="btn btn-outline-primary btn-sm me-1" data-run="/api/gates/data" data-target="data-gate-result" data-body='{"path": "{{ data_path }}"}'>
+            <i class="bi bi-play-fill"></i> Run Data Gate
+        </button>
+        <button class="btn btn-outline-primary btn-sm me-1" data-run="/api/gates/eval" data-target="eval-gate-result">
+            <i class="bi bi-play-fill"></i> Run Eval Gate
+        </button>
+        <button class="btn btn-outline-primary btn-sm me-1" data-run="/api/gates/drift" data-target="drift-gate-result">
+            <i class="bi bi-play-fill"></i> Check Drift
+        </button>
+        <button class="btn btn-primary btn-sm" data-run="/api/gates/all" data-target="all-gates-result" data-body='{"data_path": "{{ data_path }}"}'>
+            <i class="bi bi-play-fill"></i> Run All Gates
+        </button>
+    </div>
+</div>
+
+<div class="row g-3 mb-4" id="gate-cards">
+    <div class="col-md-4">
+        <div class="card gate-card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h6 class="card-title mb-0"><i class="bi bi-table me-1"></i> Data Gate</h6>
+                    <span id="data-gate-status" class="gate-status text-secondary">—</span>
+                </div>
+                <div id="data-gate-result"><p class="text-muted small mb-0">Click <em>Run Data Gate</em> to validate data quality.</p></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card gate-card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h6 class="card-title mb-0"><i class="bi bi-graph-up me-1"></i> Eval Gate</h6>
+                    <span id="eval-gate-status" class="gate-status text-secondary">—</span>
+                </div>
+                <div id="eval-gate-result"><p class="text-muted small mb-0">Click <em>Run Eval Gate</em> to check model metrics against thresholds.</p></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card gate-card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h6 class="card-title mb-0"><i class="bi bi-activity me-1"></i> Drift Gate</h6>
+                    <span id="drift-gate-status" class="gate-status text-secondary">—</span>
+                </div>
+                <div id="drift-gate-result"><p class="text-muted small mb-0">Click <em>Check Drift</em> to detect distribution shifts.</p></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="all-gates-result" class="mb-4"></div>
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-bar-chart me-1"></i> Latest Metrics</span>
+                <button class="btn btn-sm btn-outline-secondary" onclick="refreshMetrics()"><i class="bi bi-arrow-clockwise"></i></button>
+            </div>
+            <div class="card-body p-0" id="metrics-table">
+                <div class="text-center text-muted py-3 small">Loading...</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-phone me-1"></i> Telemetry Summary</span>
+                <button class="btn btn-sm btn-outline-secondary" onclick="refreshTelemetry()"><i class="bi bi-arrow-clockwise"></i></button>
+            </div>
+            <div class="card-body p-0" id="telemetry-summary">
+                <div class="text-center text-muted py-3 small">Loading...</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function refreshMetrics() {
+        const el = document.getElementById('metrics-table');
+        try {
+            const data = await apiFetch('/api/evaluation/metrics');
+            const metrics = ['accuracy', 'precision', 'recall', 'f1_score', 'roc_auc'];
+            let html = '<table class="table table-sm mb-0"><thead class="table-dark"><tr><th>Metric</th><th>Value</th></tr></thead><tbody>';
+            for (const m of metrics) {
+                const val = data[m];
+                html += `<tr><td>${m}</td><td>${val != null ? val : '—'}</td></tr>`;
+            }
+            html += '</tbody></table>';
+            el.innerHTML = html;
+        } catch {
+            el.innerHTML = '<div class="text-center text-muted py-3 small">No metrics available</div>';
+        }
+    }
+
+    async function refreshTelemetry() {
+        const el = document.getElementById('telemetry-summary');
+        try {
+            const data = await apiFetch('/monitoring/summary');
+            el.innerHTML = `<table class="table table-sm mb-0"><tbody>
+                <tr><td>Total Predictions</td><td>${data.total_predictions}</td></tr>
+                <tr><td>Churn Rate</td><td>${(data.churn_rate * 100).toFixed(1)}%</td></tr>
+                <tr><td>Avg Confidence (Churn)</td><td>${data.avg_confidence_churn}</td></tr>
+                <tr><td>From</td><td>${data.time_range?.from || '—'}</td></tr>
+                <tr><td>To</td><td>${data.time_range?.to || '—'}</td></tr>
+            </tbody></table>`;
+        } catch {
+            el.innerHTML = '<div class="text-center text-muted py-3 small">No telemetry data</div>';
+        }
+    }
+
+    window.updateDashboard = function() {
+        refreshMetrics();
+        refreshTelemetry();
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        refreshMetrics();
+        refreshTelemetry();
+    });
+
+    const _statusMap = {
+        'data-gate-result': 'data-gate-status',
+        'eval-gate-result': 'eval-gate-status',
+        'drift-gate-result': 'drift-gate-status',
+    };
+
+    document.addEventListener('gate:result', (e) => {
+        const { target, result } = e.detail;
+        const statusId = _statusMap[target];
+        if (statusId) {
+            const el = document.getElementById(statusId);
+            if (el) {
+                el.textContent = result.passed ? 'PASS' : 'FAIL';
+                el.className = 'gate-status ' + (result.passed ? 'text-success' : 'text-danger');
+            }
+        }
+    });
+</script>
+{% endblock %}

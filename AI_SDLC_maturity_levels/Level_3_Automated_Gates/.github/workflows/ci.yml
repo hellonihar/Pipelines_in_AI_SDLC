@@ -1,65 +1,82 @@
-name: Level 3 CI - Automated Gates
+name: CI
 
 on:
   push:
     branches: [main]
-    paths:
-      - "Level_3_Automated_Gates/**"
-      - ".github/workflows/level3-ci.yml"
   pull_request:
     branches: [main]
-    paths:
-      - "Level_3_Automated_Gates/**"
-
-defaults:
-  run:
-    working-directory: AI_SDLC_maturity_levels/Level_3_Automated_Gates
 
 jobs:
-  quality-gates:
+  lint-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
-        with:
-          python-version: "3.11"
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --all-groups
 
-      - name: Run lint
+      - name: Lint with ruff
         run: uv run ruff check src/ tests/ scripts/ app/
 
-      - name: Run type checks
-        run: uv run mypy src/ --ignore-missing-imports
+      - name: Type-check with mypy
+        run: uv run mypy src/ app/ --ignore-missing-imports
 
-      - name: Generate training data
-        run: uv run python -c "from src.data.generate import generate_data; generate_data('data/customer_data.csv')"
+      - name: Run tests
+        run: uv run pytest tests/ -v --tb=short
 
-      - name: Run training pipeline with gates
+  eval-gate:
+    needs: lint-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install dependencies
+        run: uv sync --all-groups
+
+      - name: Train model
         run: uv run python scripts/train.py
 
-      - name: Run evaluation script
-        run: uv run python scripts/evaluate.py
+      - name: Run evaluation gates
+        run: uv run python scripts/run_gates.py --config config/gates.yaml
 
-      - name: Run tests with coverage
-        run: uv run pytest tests/ -v --tb=short --cov=src --cov-report=term-missing
+      - name: Upload model artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: model
+          path: models/
 
-      - name: Run data validation gate on fresh data
-        run: uv run python scripts/validate_data.py --data data/customer_data.csv
+  build:
+    needs: eval-gate
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Run model gates
-        run: uv run python scripts/run_gates.py
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Test serve endpoint
-        run: |
-          uv run python scripts/serve.py &
-          SERVE_PID=$!
-          sleep 3
-          curl -s http://127.0.0.1:8000/health | grep -q '"status":"ok"'
-          curl -s -X POST http://127.0.0.1:8000/predict \
-            -H "Content-Type: application/json" \
-            -d '{"age":45,"tenure_months":24,"monthly_charges":85,"total_charges":2040,"avg_monthly_usage_hours":38,"late_payments_last_12m":1,"contract_type":"Month-to-month","payment_method":"Electronic check","internet_service":"Fiber optic","tech_support":"No"}'
-          kill $SERVE_PID 2>/dev/null || true
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository }}/churn-model:latest

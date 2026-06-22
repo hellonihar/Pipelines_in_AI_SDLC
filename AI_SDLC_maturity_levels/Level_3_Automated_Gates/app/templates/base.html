@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Automated Gates{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body { overflow-x: hidden; }
+        .sidebar {
+            position: fixed; top: 0; left: 0; bottom: 0; width: 240px;
+            z-index: 100; padding: 0;
+            background: var(--bs-dark);
+            border-right: 1px solid var(--bs-border-color);
+        }
+        .sidebar .nav-link {
+            border-radius: 0; padding: 0.75rem 1.25rem;
+            color: var(--bs-secondary-color);
+        }
+        .sidebar .nav-link:hover { color: var(--bs-body-color); background: var(--bs-tertiary-bg); }
+        .sidebar .nav-link.active { color: var(--bs-primary); background: var(--bs-tertiary-bg); }
+        .sidebar .nav-link i { margin-right: 0.5rem; width: 1.25rem; text-align: center; }
+        .main-content { margin-left: 240px; padding: 1.5rem; }
+        .gate-card .card-body { padding: 1.25rem; }
+        .gate-status { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+        .result-badge { font-size: 0.8rem; }
+        @media (max-width: 768px) {
+            .sidebar { width: 100%; position: relative; height: auto; }
+            .main-content { margin-left: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar d-flex flex-column">
+        <div class="p-3 border-bottom">
+            <h5 class="mb-0"><i class="bi bi-shield-check"></i> Auto Gates</h5>
+            <small class="text-secondary">Level 3 — UI</small>
+        </div>
+        <nav class="nav flex-column mt-2">
+            <a class="nav-link {% if active_page == 'dashboard' %}active{% endif %}" href="/">
+                <i class="bi bi-speedometer2"></i> Dashboard
+            </a>
+            <a class="nav-link {% if active_page == 'data_gate' %}active{% endif %}" href="/gates/data">
+                <i class="bi bi-table"></i> Data Validation
+            </a>
+            <a class="nav-link {% if active_page == 'eval_gate' %}active{% endif %}" href="/gates/eval">
+                <i class="bi bi-graph-up"></i> Model Evaluation
+            </a>
+            <a class="nav-link {% if active_page == 'drift_gate' %}active{% endif %}" href="/gates/drift">
+                <i class="bi bi-activity"></i> Drift Monitoring
+            </a>
+            <a class="nav-link {% if active_page == 'pipeline' %}active{% endif %}" href="/pipeline">
+                <i class="bi bi-gear-wide-connected"></i> Pipeline
+            </a>
+            <a class="nav-link {% if active_page == 'config' %}active{% endif %}" href="/config">
+                <i class="bi bi-sliders"></i> Configuration
+            </a>
+        </nav>
+        <div class="mt-auto p-3 border-top text-secondary small">
+            Churn Prediction &mdash; AI SDLC Level 3
+        </div>
+    </div>
+
+    <div class="main-content">
+        {% block content %}{% endblock %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        async function apiFetch(url, options = {}) {
+            const resp = await fetch(url, {
+                headers: { 'Content-Type': 'application/json', ...options.headers },
+                ...options,
+            });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.error || data.message || resp.statusText);
+            return data;
+        }
+
+        function setBtnLoading(btn, loading) {
+            if (loading) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Running...';
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = btn.dataset.originalText || btn.textContent;
+            }
+        }
+
+        document.querySelectorAll('[data-run]').forEach(btn => {
+            btn.dataset.originalText = btn.innerHTML;
+            btn.addEventListener('click', async () => {
+                const endpoint = btn.dataset.run;
+                const target = btn.dataset.target;
+                const body = btn.dataset.body ? JSON.parse(btn.dataset.body) : {};
+                setBtnLoading(btn, true);
+                try {
+                    const result = await apiFetch(endpoint, {
+                        method: 'POST',
+                        body: JSON.stringify(body),
+                    });
+            if (target) {
+                const el = document.getElementById(target);
+                if (el) el.innerHTML = renderResult(result);
+            }
+            document.dispatchEvent(new CustomEvent('gate:result', {
+                detail: { button: btn, result, target, endpoint },
+                bubbles: true,
+            }));
+            if (window.updateDashboard) window.updateDashboard();
+                } catch (err) {
+                    if (target) {
+                        const el = document.getElementById(target);
+                        if (el) el.innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
+                    }
+                } finally {
+                    setBtnLoading(btn, false);
+                }
+            });
+        });
+
+        function renderResult(result) {
+            if (!result) return '<div class="text-muted">No result</div>';
+            let html = `<div class="d-flex align-items-center mb-2">
+                <span class="badge ${result.passed ? 'bg-success' : 'bg-danger'} result-badge me-2">
+                    ${result.passed ? 'PASS' : 'FAIL'}
+                </span>
+                <span class="fw-medium">${result.gate_name || result.summary || ''}</span>
+            </div>`;
+            if (result.checks && Object.keys(result.checks).length > 0) {
+                html += '<table class="table table-sm table-borderless mb-0"><tbody>';
+                for (const [check, passed] of Object.entries(result.checks)) {
+                    html += `<tr>
+                        <td class="ps-0">${check}</td>
+                        <td class="text-end"><span class="badge ${passed ? 'bg-success-subtle text-success-emphasis' : 'bg-danger-subtle text-danger-emphasis'}">${passed ? 'PASS' : 'FAIL'}</span></td>
+                    </tr>`;
+                }
+                html += '</tbody></table>';
+            }
+            return html;
+        }
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

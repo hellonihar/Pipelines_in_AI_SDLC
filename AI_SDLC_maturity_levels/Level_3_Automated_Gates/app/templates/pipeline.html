@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Pipeline — Automated Gates{% endblock %}
+{% set active_page = "pipeline" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="mb-0"><i class="bi bi-gear-wide-connected me-2"></i>Training Pipeline</h3>
+    <button class="btn btn-primary btn-sm" id="run-pipeline-btn">
+        <i class="bi bi-play-fill"></i> Run Full Pipeline
+    </button>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header"><i class="bi bi-info-circle me-1"></i> Pipeline Steps</div>
+    <div class="card-body">
+        <ol class="mb-0">
+            <li><strong>Data Gate</strong> — Validate CSV data quality (nulls, anomalies, novel categories)</li>
+            <li><strong>Feature Engineering</strong> — Encode categories, scale numerics</li>
+            <li><strong>Model Training</strong> — Train RandomForestClassifier, log to MLflow</li>
+            <li><strong>Evaluation</strong> — Compute accuracy, precision, recall, F1, ROC AUC</li>
+            <li><strong>Eval Gate</strong> — Check metrics against configured thresholds</li>
+            <li><strong>Baseline Generation</strong> — Save distribution stats for future drift detection</li>
+        </ol>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-terminal me-1"></i> Pipeline Output</span>
+        <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('pipeline-output').innerHTML = ''"><i class="bi bi-x-lg"></i> Clear</button>
+    </div>
+    <div class="card-body p-0">
+        <pre id="pipeline-output" class="mb-0" style="max-height: 500px; overflow-y: auto; padding: 1rem; font-size: 0.8rem; background: var(--bs-dark); color: var(--bs-light);">Pipeline not yet run. Click <em>Run Full Pipeline</em> to start.</pre>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.getElementById('run-pipeline-btn').addEventListener('click', async function() {
+        const btn = this;
+        const output = document.getElementById('pipeline-output');
+        output.innerHTML = 'Starting pipeline...\n';
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Running...';
+
+        try {
+            const result = await apiFetch('/api/pipeline/run', { method: 'POST' });
+            let text = '';
+            if (result.logs) {
+                text = result.logs.join('\n');
+            } else {
+                text = JSON.stringify(result, null, 2);
+            }
+            text += '\n\n--- Pipeline Complete ---\n';
+
+            if (result.data_gate) {
+                text += `Data Gate: ${result.data_gate.passed ? 'PASS' : 'FAIL'} — ${result.data_gate.summary}\n`;
+            }
+            if (result.eval_gate) {
+                text += `Eval Gate: ${result.eval_gate.passed ? 'PASS' : 'FAIL'} — ${result.eval_gate.summary}\n`;
+            }
+
+            output.innerHTML = text;
+            output.scrollTop = output.scrollHeight;
+        } catch (err) {
+            output.innerHTML += `\nERROR: ${err.message}\n`;
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-play-fill"></i> Run Full Pipeline';
+        }
+    });
+</script>
+{% endblock %}

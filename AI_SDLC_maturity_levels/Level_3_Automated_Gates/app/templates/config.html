@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Configuration — Automated Gates{% endblock %}
+{% set active_page = "config" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="mb-0"><i class="bi bi-sliders me-2"></i>Configuration</h3>
+    <button class="btn btn-success btn-sm" id="save-config-btn"><i class="bi bi-floppy"></i> Save Changes</button>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-7">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-shield me-1"></i> Gate Thresholds</div>
+            <div class="card-body" id="gate-config-form">
+                <div class="text-center text-muted py-3 small">Loading...</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-5">
+        <div class="card h-100">
+            <div class="card-header"><i class="bi bi-gear me-1"></i> Application Settings</div>
+            <div class="card-body p-0" id="app-config-display">
+                <div class="text-center text-muted py-3 small">Loading...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="config-save-status"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let originalConfig = {};
+
+    async function loadConfig() {
+        const formEl = document.getElementById('gate-config-form');
+        const appEl = document.getElementById('app-config-display');
+        try {
+            const cfg = await apiFetch('/api/config/gates');
+            originalConfig = JSON.parse(JSON.stringify(cfg));
+
+            const sections = [
+                {key: 'data_validation', label: 'Data Validation', fields: [
+                    ['min_rows', 'Min Rows', 'number'],
+                    ['max_null_fraction', 'Max Null Fraction', 'number', 0.01],
+                    ['max_anomaly_rate', 'Max Anomaly Rate', 'number', 0.01],
+                    ['max_novel_category_rate', 'Max Novel Category Rate', 'number', 0.01],
+                ]},
+                {key: 'evaluation', label: 'Evaluation', fields: [
+                    ['min_accuracy', 'Min Accuracy', 'number', 0.01],
+                    ['min_precision', 'Min Precision', 'number', 0.01],
+                    ['min_recall', 'Min Recall', 'number', 0.01],
+                    ['min_f1', 'Min F1', 'number', 0.01],
+                    ['min_roc_auc', 'Min ROC AUC', 'number', 0.01],
+                ]},
+                {key: 'drift', label: 'Drift Detection', fields: [
+                    ['max_feature_drift_pvalue', 'Max Feature Drift P-Value', 'number', 0.001],
+                    ['max_psi', 'Max PSI', 'number', 0.01],
+                    ['min_psi_samples', 'Min PSI Samples', 'number', 1],
+                ]},
+            ];
+
+            let html = '';
+            let fieldIndex = 0;
+            for (const section of sections) {
+                html += `<h6 class="mt-2 mb-2 text-primary">${section.label}</h6>`;
+                html += '<div class="row g-2 mb-2">';
+                for (const [key, label, type, step] of section.fields) {
+                    const val = (cfg[section.key] || {})[key];
+                    html += `<div class="col-md-6">
+                        <label class="form-label small">${label}</label>
+                        <input type="${type}" class="form-control form-control-sm config-field"
+                            data-section="${section.key}" data-key="${key}"
+                            value="${val != null ? val : ''}" ${step ? `step="${step}"` : ''}>
+                    </div>`;
+                    fieldIndex++;
+                }
+                html += '</div>';
+            }
+            formEl.innerHTML = html;
+
+            try {
+                const appCfg = await apiFetch('/api/config/app');
+                const fields = [
+                    ['port', 'Port'],
+                    ['data_path', 'Data Path'],
+                    ['model_dir', 'Model Directory'],
+                    ['gates_config', 'Gates Config Path'],
+                    ['experiment_name', 'MLflow Experiment'],
+                    ['log_level', 'Log Level'],
+                    ['drift_check_interval', 'Drift Check (s)'],
+                    ['drift_window_hours', 'Drift Window (h)'],
+                    ['monitoring_retention_days', 'Retention (days)'],
+                ];
+                let appHtml = '<table class="table table-sm mb-0"><tbody>';
+                for (const [key, label] of fields) {
+                    const val = appCfg[key];
+                    appHtml += `<tr><td class="ps-3">${label}</td><td class="text-end text-muted small">${val != null ? val : '—'}</td></tr>`;
+                }
+                appHtml += '</tbody></table>';
+                const mlflowUri = appCfg.mlflow_uri;
+                if (mlflowUri) {
+                    appHtml += `<div class="px-3 pb-2 small text-muted"><strong>MLflow URI:</strong> ${mlflowUri}</div>`;
+                }
+                appEl.innerHTML = appHtml;
+            } catch {
+                appEl.innerHTML = '<div class="text-center text-muted py-3 small">Could not load app config</div>';
+            }
+        } catch {
+            formEl.innerHTML = '<div class="text-center text-muted py-3 small">Could not load configuration</div>';
+        }
+    }
+
+    document.getElementById('save-config-btn').addEventListener('click', async function() {
+        const btn = this;
+        const statusEl = document.getElementById('config-save-status');
+        const fields = document.querySelectorAll('.config-field');
+
+        const cfg = {};
+        fields.forEach(f => {
+            const section = f.dataset.section;
+            const key = f.dataset.key;
+            if (!cfg[section]) cfg[section] = {};
+            const val = f.value.trim();
+            cfg[section][key] = val === '' ? null : (f.type === 'number' ? parseFloat(val) : val);
+        });
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...';
+        try {
+            const result = await apiFetch('/api/config/gates', {
+                method: 'PUT',
+                body: JSON.stringify(cfg),
+            });
+            statusEl.innerHTML = `<div class="alert alert-success alert-dismissible fade show">
+                <i class="bi bi-check-circle me-1"></i> Configuration saved successfully.
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>`;
+            originalConfig = JSON.parse(JSON.stringify(result));
+        } catch (err) {
+            statusEl.innerHTML = `<div class="alert alert-danger alert-dismissible fade show">
+                <i class="bi bi-exclamation-triangle me-1"></i> ${err.message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>`;
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-floppy"></i> Save Changes';
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', loadConfig);
+</script>
+{% endblock %}

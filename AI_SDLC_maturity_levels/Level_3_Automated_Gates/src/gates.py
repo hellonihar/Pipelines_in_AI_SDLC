@@ -90,6 +90,17 @@ def run_eval_gate(thresholds: dict, metrics: dict) -> GateResult:
     return GateResult(passed=passed, gate_name="evaluation", checks=checks, summary=summary)
 
 
+def run_all_gates(gate_cfg: dict, data_report=None, metrics=None, drift_report=None) -> list[GateResult]:
+    results = []
+    if data_report is not None:
+        results.append(run_data_gate(gate_cfg.get("data_validation", {}), data_report))
+    if metrics is not None:
+        results.append(run_eval_gate(gate_cfg.get("evaluation", {}), metrics))
+    if drift_report is not None:
+        results.append(run_drift_gate(gate_cfg.get("drift", {}), drift_report))
+    return results
+
+
 def run_drift_gate(thresholds: dict, drift_report: dict) -> GateResult:
     checks = {}
     warnings = []

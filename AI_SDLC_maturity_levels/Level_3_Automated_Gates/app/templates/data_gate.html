@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Data Validation — Automated Gates{% endblock %}
+{% set active_page = "data_gate" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="mb-0"><i class="bi bi-table me-2"></i>Data Validation Gate</h3>
+    <div>
+        <button class="btn btn-outline-secondary btn-sm me-1" onclick="loadSample()"><i class="bi bi-file-earmark"></i> Use Sample Data</button>
+        <button class="btn btn-primary btn-sm" data-run="/api/gates/data" data-target="data-gate-result" data-body='{"path": "{{ data_path }}"}'><i class="bi bi-play-fill"></i> Run Data Gate</button>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-folder me-1"></i> Data Source</div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">CSV Path</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control form-control-sm" id="csv-path" value="{{ data_path }}" placeholder="path/to/data.csv">
+                        <button class="btn btn-outline-primary btn-sm" data-run="/api/gates/data" data-target="data-gate-result" onclick="updateBody()"><i class="bi bi-play-fill"></i> Run</button>
+                    </div>
+                    <div class="form-text">Enter path to a CSV file with customer churn features.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header"><i class="bi bi-info-circle me-1"></i> Gate Thresholds</div>
+            <div class="card-body p-0" id="data-thresholds">
+                <div class="text-center text-muted py-3 small">Loading...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><i class="bi bi-check-circle me-1"></i> Gate Result</div>
+    <div class="card-body" id="data-gate-result">
+        <p class="text-muted small mb-0">Run the data gate to see validation results here.</p>
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-header"><i class="bi bi-search me-1"></i> Validation Details</div>
+    <div class="card-body" id="validation-details">
+        <p class="text-muted small mb-0">Run the data gate to populate detailed validation report.</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function updateBody() {
+        const path = document.getElementById('csv-path').value;
+        document.querySelector('[data-run="/api/gates/data"]').dataset.body = JSON.stringify({path: path});
+    }
+
+    async function loadSample() {
+        document.getElementById('csv-path').value = '{{ data_path }}';
+        updateBody();
+        document.querySelector('[data-run="/api/gates/data"]').click();
+    }
+
+    (async function loadThresholds() {
+        const el = document.getElementById('data-thresholds');
+        try {
+            const cfg = await apiFetch('/api/config/gates');
+            const th = cfg.data_validation || {};
+            const rows = [
+                ['min_rows', th.min_rows],
+                ['max_null_fraction', th.max_null_fraction],
+                ['max_anomaly_rate', th.max_anomaly_rate],
+                ['max_novel_category_rate', th.max_novel_category_rate],
+            ];
+            let html = '<table class="table table-sm mb-0"><thead class="table-dark"><tr><th>Check</th><th>Threshold</th></tr></thead><tbody>';
+            for (const [k, v] of rows) {
+                html += `<tr><td>${k}</td><td>${v != null ? v : '—'}</td></tr>`;
+            }
+            html += '</tbody></table>';
+            el.innerHTML = html;
+        } catch { el.innerHTML = '<div class="text-center text-muted py-3 small">Failed to load</div>'; }
+    })();
+
+    document.querySelector('[data-run="/api/gates/data"]').addEventListener('click', async function() {
+        const path = document.getElementById('csv-path').value;
+        this.dataset.body = JSON.stringify({path: path});
+        await new Promise(r => setTimeout(r, 100));
+    });
+
+    document.addEventListener('gate:result', (e) => {
+        const { endpoint, result } = e.detail;
+        if (endpoint !== '/api/gates/data') return;
+
+        const detEl = document.getElementById('validation-details');
+        const report = result.report;
+        if (!report) {
+            detEl.innerHTML = '<div class="text-muted small">No detailed report available.</div>';
+            return;
+        }
+
+        let html = `<div class="small"><strong>Rows:</strong> ${report.n_rows} &middot; <strong>Columns:</strong> ${report.n_columns} &middot; <strong>Passed:</strong> ${report.passed}</div>`;
+
+        if (report.warnings && report.warnings.length > 0) {
+            html += '<div class="mt-2"><strong class="text-warning">Warnings:</strong><ul class="mb-0 small">';
+            report.warnings.forEach(w => { html += `<li>${w}</li>`; });
+            html += '</ul></div>';
+        }
+
+        if (report.errors && report.errors.length > 0) {
+            html += '<div class="mt-2"><strong class="text-danger">Errors:</strong><ul class="mb-0 small">';
+            report.errors.forEach(w => { html += `<li>${w}</li>`; });
+            html += '</ul></div>';
+        }
+
+        const nulls = report.null_fractions;
+        if (nulls && Object.keys(nulls).length > 0) {
+            html += '<div class="mt-2"><strong>Null Fractions:</strong><table class="table table-sm mb-0 mt-1"><thead><tr><th>Column</th><th>Null %</th></tr></thead><tbody>';
+            for (const [col, val] of Object.entries(nulls)) {
+                const flag = val > 0.05 ? 'text-danger' : '';
+                html += `<tr class="${flag}"><td>${col}</td><td>${(val * 100).toFixed(1)}%</td></tr>`;
+            }
+            html += '</tbody></table></div>';
+        }
+
+        const anoms = report.anomaly_rates;
+        if (anoms && Object.keys(anoms).length > 0) {
+            html += '<div class="mt-2"><strong>Anomaly Rates:</strong><table class="table table-sm mb-0 mt-1"><thead><tr><th>Column</th><th>Anomaly %</th></tr></thead><tbody>';
+            for (const [col, val] of Object.entries(anoms)) {
+                const flag = val > 0.10 ? 'text-danger' : '';
+                html += `<tr class="${flag}"><td>${col}</td><td>${(val * 100).toFixed(1)}%</td></tr>`;
+            }
+            html += '</tbody></table></div>';
+        }
+
+        const novels = report.novel_categories;
+        if (novels && Object.keys(novels).length > 0) {
+            html += '<div class="mt-2"><strong>Novel Categories:</strong><ul class="mb-0 small">';
+            for (const [col, vals] of Object.entries(novels)) {
+                if (vals.length > 0) {
+                    html += `<li><strong>${col}:</strong> ${vals.join(', ')}</li>`;
+                }
+            }
+            html += '</ul></div>';
+        }
+
+        detEl.innerHTML = html;
+    });
+</script>
+{% endblock %}
